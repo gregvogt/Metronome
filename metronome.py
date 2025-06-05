@@ -8,6 +8,8 @@ from typing import List
 from pathlib import Path
 from glob import glob
 from tqdm import tqdm
+import requests
+import re
 
 # Conversion Deps
 import shutil
@@ -182,10 +184,14 @@ def termination_handler():
 #        settings_json.close()
 
 
-# TODO: verify paths to aboid path traversal
 def make_dir(directory: str) -> str:
     if not os.path.isabs(directory):
         directory = os.path.join(current_working_dir, directory)
+    directory = os.path.abspath(directory)
+
+    base_dir = os.path.abspath(current_working_dir)
+    if not directory.startswith(base_dir + os.sep) and directory != base_dir:
+        raise ValueError(f"Path traversal detected: {directory} is outside {base_dir}")
 
     if not os.path.exists(directory):
         os.mkdir(directory)
@@ -202,26 +208,20 @@ if metronome_settings["all"]:
     metronome_settings["convert"] = True
     metronome_settings["analyze"] = True
 
-from tqdm import tqdm  # noqa
-
 
 def extract(in_file: bytes, out_path: Path, needles: List) -> bool:
     from zipfile import ZipFile  # noqa
     from tarfile import TarFile  # noqa
     import magic
 
-    # if isinstance(in_file, BytesIO):
-    # file_prepared = in_file.read()
-    file_type = magic.from_buffer(in_file, mime=True)
-    # elif isinstance(in_file, Path):
-    #    file_prepared = in_file
-    #    file_type = magic.from_file(in_file, mime=True)
+    def safe_extract_path(base_dir: Path, target_path: Path) -> Path:
+        # Resolve the absolute path and ensure it's within base_dir
+        abs_target = (base_dir / target_path.name).resolve()
+        if not str(abs_target).startswith(str(base_dir.resolve()) + os.sep):
+            raise ValueError(f"Blocked path traversal attempt: {abs_target}")
+        return abs_target
 
-    #    if not os.path.exists(in_file):
-    #        raise RuntimeError("{} does not exist.".format(in_file))
-    # else:
-    #    print(type(in_file))
-    #    exit()
+    file_type = magic.from_buffer(in_file, mime=True)
 
     if file_type == "application/x-xz" or file_type == "application/gzip":
         with TarFile.open(fileobj=BytesIO(in_file), mode="r|*") as tar:
@@ -232,7 +232,8 @@ def extract(in_file: bytes, out_path: Path, needles: List) -> bool:
                     continue
 
                 if file_path.stem in needles:
-                    with open(os.path.join(out_path, file_path.name), "wb") as file_out:
+                    safe_path = safe_extract_path(out_path, file_path)
+                    with open(safe_path, "wb") as file_out:
                         file_bytes = tar.extractfile(file)
 
                         if file_bytes is None:
@@ -246,7 +247,6 @@ def extract(in_file: bytes, out_path: Path, needles: List) -> bool:
                         file_out.close()
 
     elif file_type == "application/zip":
-        # PyRight will complain that this doesnt accept str | BytesIO, but doesnt see that it will never get the combo
         with ZipFile(BytesIO(in_file)) as zip:  # type: ignore
             files = zip.infolist()
 
@@ -254,7 +254,8 @@ def extract(in_file: bytes, out_path: Path, needles: List) -> bool:
                 file_path = Path(file.filename)
 
                 if file_path.stem in needles and file_path.suffix in ["", ".exe"]:
-                    with open(os.path.join(out_path, file_path.name), "wb") as file_out:
+                    safe_path = safe_extract_path(out_path, file_path)
+                    with open(safe_path, "wb") as file_out:
                         file_out.write(zip.read(str(file.filename)))
 
                         if system == "Linux":
@@ -268,9 +269,12 @@ def extract(in_file: bytes, out_path: Path, needles: List) -> bool:
 
 
 def download(url: str, checksum: str | None = None) -> bytes:
-    import requests
+    try:
+        file_request = requests.get(url, stream=True)
+        file_request.raise_for_status()
+    except requests.RequestException as e:
+        raise RuntimeError(f"Failed to download {url}: {e}")
 
-    file_request = requests.get(url, stream=True)
     file_size = int(file_request.headers.get("Content-Length", 0))
     file = bytearray()
 
@@ -283,10 +287,11 @@ def download(url: str, checksum: str | None = None) -> bytes:
     ) as file_progress_bar:
         for block in file_request.iter_content(1024):
             file_progress_bar.update(len(block))
-            file.extend(bytes(block))
+            file.extend(block)
 
-    if file_size != 0 and file_progress_bar.n != file_size:
-        raise RuntimeError("Unable to download: {}".format(url))
+        # Check if download completed
+        if file_size != 0 and file_progress_bar.n != file_size:
+            raise RuntimeError("Unable to download: {}".format(url))
 
     if hashlib.sha256(file).hexdigest() != checksum:
         raise RuntimeError(
@@ -470,18 +475,37 @@ def ffmpeg(in_file: Path, out_file: Path, file_out_name: str, **kwargs) -> bool:
     queue.task_done()
     return queue.get()
 
-    return True
+
+def is_safe_path(base_dir: str, path: str) -> bool:
+    # Prevent path traversal and ensure path is within base_dir
+    abs_base = os.path.abspath(base_dir)
+    abs_path = os.path.abspath(path)
+    return abs_path.startswith(abs_base + os.sep) or abs_path == abs_base
 
 
-files = glob(
+def is_safe_filename(filename: str) -> bool:
+    # Allow only safe characters in filenames (alphanumeric, dash, underscore, dot)
+    return re.match(r"^[\w\-. ]+$", filename) is not None
+
+
+files = []
+for file in glob(
     os.path.join(current_working_dir, metronome_settings["input"], "**", "*.flac"),
     recursive=True,
-)
+):
+    # Check for path traversal and unsupported characters
+    if not is_safe_path(metronome_settings["input"], file):
+        tqdm.write(f"Skipping potentially unsafe path: {file}")
+        continue
+    if not is_safe_filename(os.path.basename(file)):
+        tqdm.write(f"Skipping file with unsupported characters: {file}")
+        continue
+    files.append(file)
 
 
 # PyRight is hallucinating, this will only ever return an int
-threads = int(
-    metronome_settings["threads"] if os.cpu_count() is None else os.cpu_count()  # type: ignore
+threads = (
+    int(metronome_settings["threads"]) if os.cpu_count() is None else os.cpu_count()
 )
 thread_list = []
 
