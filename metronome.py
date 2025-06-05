@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from io import BytesIO
-import queue
 import sys, platform, tempfile, os, stat  # noqa
 from datetime import datetime
 from typing import List
@@ -10,6 +9,7 @@ from glob import glob
 from tqdm import tqdm
 import requests
 import re
+import hashlib
 
 # Conversion Deps
 import shutil
@@ -194,7 +194,7 @@ def make_dir(directory: str) -> str:
         raise ValueError(f"Path traversal detected: {directory} is outside {base_dir}")
 
     if not os.path.exists(directory):
-        os.mkdir(directory)
+        os.makedirs(directory, exist_ok=True)
 
     return directory
 
@@ -338,7 +338,7 @@ if metronome_settings["analyze"] or metronome_settings["convert"]:
 
     if (
         metronome_settings["analyze"]
-        and shutil.which("fpcalc") is not None
+        and shutil.which("fpcalc") is None
         and not os.path.exists(os.path.join(bin_location, "fpcalc"))
     ):
         chromaprint_archive = download(
@@ -363,7 +363,6 @@ if metronome_settings["analyze"] or metronome_settings["convert"]:
 def open_file(filename: pathlib.Path) -> bytes:
     with open(filename, "rb") as file:
         file_loaded = file.read()
-        file.close()
 
     return file_loaded
 
@@ -371,17 +370,17 @@ def open_file(filename: pathlib.Path) -> bytes:
 def ffprobe(file: Path):
     json_packed = ""
 
+    ffprobe_path = shutil.which("ffprobe") or os.path.join(bin_location, "ffprobe")
     ffprobe_command = [
-        shutil.which("ffprobe"),
+        ffprobe_path,
         "-v",
         "quiet",
         "-show_format",
         "-show_streams",
         "-print_format",
         "json",
-        file,
+        str(file),
     ]
-
     with Popen(
         ffprobe_command,
         shell=False,
@@ -399,11 +398,12 @@ def ffprobe(file: Path):
 
 
 def ffmpeg(in_file: Path, out_file: Path, file_out_name: str, **kwargs) -> bool:
+    ffmpeg_path = shutil.which("ffmpeg") or os.path.join(bin_location, "ffmpeg")
     ffmpeg_command = [
-        shutil.which("ffmpeg"),
+        ffmpeg_path,
         "-y",
         "-i",
-        in_file,
+        str(in_file),
         "-ab",
         "320k",
         "-vcodec",
@@ -418,7 +418,7 @@ def ffmpeg(in_file: Path, out_file: Path, file_out_name: str, **kwargs) -> bool:
         "error",
         "-f",
         "mp3",
-        os.path.join(out_file.parent, file_out_name),
+        os.path.join(str(out_file.parent), file_out_name),
     ]
 
     # Limit our filenames to 40 chars so it looks uniform
@@ -503,10 +503,10 @@ for file in glob(
     files.append(file)
 
 
-# PyRight is hallucinating, this will only ever return an int
 threads = (
     int(metronome_settings["threads"]) if os.cpu_count() is None else os.cpu_count()
 )
+
 thread_list = []
 
 if metronome_settings["convert"]:
@@ -533,7 +533,7 @@ if metronome_settings["convert"]:
 
             file_out_name = f"{file.stem}.mp3"
 
-            # We dont want to cnvert again
+            # We dont want to convert again
             if os.path.exists(os.path.join(file_out.parent, file_out_name)):
                 tqdm.write(f"{file_out_name} already exists! Skipping...")
                 continue
@@ -557,3 +557,4 @@ if metronome_settings["convert"]:
         [thread.join() for thread in thread_list]
 
     print(f"\nTotal converted files: {convert_count}")
+    
