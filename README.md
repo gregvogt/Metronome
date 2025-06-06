@@ -1,6 +1,11 @@
+<div align="center">
 # Metronome
 
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
 Metronome is a swiss-army knife command-line tool to convert, sort, and analyze your music library. It supports batch conversion between audio formats, preserves folder structure, and can analyze tracks using AcoustID and MusicBrainz.
+
+</div>
 
 ## Features
 
