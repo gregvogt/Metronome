@@ -1,8 +1,9 @@
 import os
 import pathlib
-current_working_dir = pathlib.Path.cwd()
 
 def make_dir(directory: str) -> str:
+    current_working_dir = pathlib.Path.cwd()
+
     if not os.path.isabs(directory):
         directory = os.path.join(current_working_dir, directory)
     directory = os.path.abspath(directory)
