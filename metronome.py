@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 
 from io import BytesIO
-import sys, platform, tempfile, os, stat  # noqa
+import sys, platform, tempfile, os, stat
 from datetime import datetime
 from typing import List
 from pathlib import Path
 from glob import glob
-from tqdm import tqdm
-import requests
+from tqdm import tqdm # type: ignore
 import re
-import hashlib
-import argcomplete
+import argcomplete # type: ignore
 
 # Conversion Deps
 import shutil
@@ -268,7 +266,7 @@ if metronome_settings["all"]:
 def extract(in_file: bytes, out_path: Path, needles: List) -> bool:
     from zipfile import ZipFile  # noqa
     from tarfile import TarFile  # noqa
-    import magic
+    import magic # type: ignore
 
     def safe_extract_path(base_dir: Path, target_path: Path) -> Path:
         # Resolve the absolute path and ensure it's within base_dir
@@ -325,6 +323,8 @@ def extract(in_file: bytes, out_path: Path, needles: List) -> bool:
 
 
 def download(url: str, checksum: str | None = None) -> bytes:
+    import requests # type: ignore
+    import hashlib
     try:
         file_request = requests.get(url, stream=True)
         file_request.raise_for_status()
@@ -571,7 +571,7 @@ for file in glob(
 
 
 threads = (
-    int(metronome_settings["threads"]) if os.cpu_count() is None else os.cpu_count()
+    int(metronome_settings["threads"]) or os.cpu_count() or 2
 )
 
 thread_list = []
