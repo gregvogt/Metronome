@@ -1,0 +1,22 @@
+{
+  "ffmpeg": {
+    "Linux": {
+      "url": "https://www.johnvansickle.com/ffmpeg/old-releases/ffmpeg-6.0.1-amd64-static.tar.xz",
+      "checksum": "28268bf402f1083833ea269331587f60a242848880073be8016501d864bd07a5"
+    },
+    "Windows": {
+      "url": "https://github.com/GyanD/codexffmpeg/releases/download/7.0.1/ffmpeg-7.0.1-full_build.zip",
+      "checksum": "a69ad4e55e7608db31f265c334ebd16d6df013f094777e5814f1ac3c223b0a90"
+    }
+  },
+  "chromaprint": {
+    "Linux": {
+      "url": "https://github.com/acoustid/chromaprint/releases/download/v1.5.1/chromaprint-fpcalc-1.5.1-linux-x86_64.tar.gz",
+      "checksum": "4d7433a7f778e5946d7225230681cbcd634e153316ecac87c538c33ac32387a5"
+    },
+    "Windows": {
+      "url": "https://github.com/acoustid/chromaprint/releases/download/v1.5.1/chromaprint-fpcalc-1.5.1-windows-x86_64.zip",
+      "checksum": "36b478e16aa69f757f376645db0d436073a42c0097b6bb2677109e7835b59bbc"
+    }
+  }
+}
