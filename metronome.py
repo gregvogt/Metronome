@@ -7,7 +7,6 @@ from typing import List
 from pathlib import Path
 from glob import glob
 from tqdm import tqdm # type: ignore
-import re
 import argcomplete # type: ignore
 
 # Conversion Deps
