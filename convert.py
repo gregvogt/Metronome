@@ -2,7 +2,7 @@ import os
 import shutil
 from pathlib import Path
 from subprocess import Popen, PIPE, STDOUT
-from tqdm import tqdm
+from tqdm import tqdm # type: ignore
 from datetime import datetime
 import json
 
