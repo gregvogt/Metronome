@@ -1,0 +1,14 @@
+input/
+output/
+*.mp3
+*.wav
+*.flac
+*.aac
+*.ogg
+*.opus
+*.m4a
+*.wma
+*.alac
+*.aiff
+*.mid
+*.midi

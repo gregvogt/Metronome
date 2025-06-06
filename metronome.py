@@ -26,33 +26,6 @@ bin_location = Path(os.getcwd(), "bin")
 if system != "Linux" and system != "Windows":
     raise RuntimeError("{} is not supported.".format(system))
 
-if len(sys.argv) == 1:
-    print("Please select at least one option to begin.")
-    exit()
-
-programs = {
-    "ffmpeg": {
-        "Linux": {
-            "url": "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz",
-            "checksum": "b1e096314a5cc1437b23d675cc1f9941c472b25c4a501e99b7979b3768d8f66b",
-        },
-        "Windows": {
-            "url": "https://github.com/GyanD/codexffmpeg/releases/download/7.0.1/ffmpeg-7.0.1-full_build.zip",
-            "checksum": "a69ad4e55e7608db31f265c334ebd16d6df013f094777e5814f1ac3c223b0a90",
-        },
-    },
-    "chromaprint": {
-        "Linux": {
-            "url": "https://github.com/acoustid/chromaprint/releases/download/v1.5.1/chromaprint-fpcalc-1.5.1-linux-x86_64.tar.gz",
-            "checksum": "4d7433a7f778e5946d7225230681cbcd634e153316ecac87c538c33ac32387a5",
-        },
-        "Windows": {
-            "url": "https://github.com/acoustid/chromaprint/releases/download/v1.5.1/chromaprint-fpcalc-1.5.1-windows-x86_64.zip",
-            "checksum": "36b478e16aa69f757f376645db0d436073a42c0097b6bb2677109e7835b59bbc",
-        },
-    },
-}
-
 import argparse  # noqa
 
 parser = argparse.ArgumentParser(
@@ -78,9 +51,9 @@ parser.add_argument(
 parser.add_argument(
     "-c",
     "--convert",
-    help="Convert input file(s) to specified format. Default 320kbps(or highest available) MP3",
-    default=False,
-    action=argparse.BooleanOptionalAction,
+    help="Convert input file(s) to specified format: mp3 (320kpbs) (default) or opus (384kbps).",
+    choices=["mp3", "opus"],
+    default="mp3",
 )
 parser.add_argument(
     "--threads",
@@ -155,6 +128,34 @@ parser.add_argument(
 )
 
 metronome_settings = vars(parser.parse_args())
+
+if len(sys.argv) == 1:
+    parser.print_help()
+    print("Please select at least one option to begin.")
+    exit()
+
+programs = {
+    "ffmpeg": {
+        "Linux": {
+            "url": "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz",
+            "checksum": "b1e096314a5cc1437b23d675cc1f9941c472b25c4a501e99b7979b3768d8f66b",
+        },
+        "Windows": {
+            "url": "https://github.com/GyanD/codexffmpeg/releases/download/7.0.1/ffmpeg-7.0.1-full_build.zip",
+            "checksum": "a69ad4e55e7608db31f265c334ebd16d6df013f094777e5814f1ac3c223b0a90",
+        },
+    },
+    "chromaprint": {
+        "Linux": {
+            "url": "https://github.com/acoustid/chromaprint/releases/download/v1.5.1/chromaprint-fpcalc-1.5.1-linux-x86_64.tar.gz",
+            "checksum": "4d7433a7f778e5946d7225230681cbcd634e153316ecac87c538c33ac32387a5",
+        },
+        "Windows": {
+            "url": "https://github.com/acoustid/chromaprint/releases/download/v1.5.1/chromaprint-fpcalc-1.5.1-windows-x86_64.zip",
+            "checksum": "36b478e16aa69f757f376645db0d436073a42c0097b6bb2677109e7835b59bbc",
+        },
+    },
+}
 
 import atexit, platform, pathlib, json  # noqa
 
@@ -399,25 +400,37 @@ def ffprobe(file: Path):
 
 def ffmpeg(in_file: Path, out_file: Path, file_out_name: str, **kwargs) -> bool:
     ffmpeg_path = shutil.which("ffmpeg") or os.path.join(bin_location, "ffmpeg")
+    output_format = metronome_settings.get("convert", "mp3")
+    if output_format == "opus":
+        codec_args = [
+            "-c:a", "libopus",
+            "-b:a", "384k",
+            "-vbr", "on",
+            "-compression_level", "10",
+            "-map_metadata", "0",
+            "-progress", "pipe:1",
+            "-loglevel", "error",
+            "-f", "opus",
+        ]
+        file_out_name = os.path.splitext(file_out_name)[0] + ".opus"
+    else:  # mp3
+        codec_args = [
+            "-ab", "320k",
+            "-vcodec", "copy",
+            "-map_metadata", "0",
+            "-id3v2_version", "3",
+            "-progress", "pipe:1",
+            "-loglevel", "error",
+            "-f", "mp3",
+        ]
+        file_out_name = os.path.splitext(file_out_name)[0] + ".mp3"
+
     ffmpeg_command = [
         ffmpeg_path,
         "-y",
         "-i",
         str(in_file),
-        "-ab",
-        "320k",
-        "-vcodec",
-        "copy",
-        "-map_metadata",
-        "0",
-        "-id3v2_version",
-        "3",
-        "-progress",
-        "pipe:1",
-        "-loglevel",
-        "error",
-        "-f",
-        "mp3",
+        *codec_args,
         os.path.join(str(out_file.parent), file_out_name),
     ]
 
@@ -431,7 +444,6 @@ def ffmpeg(in_file: Path, out_file: Path, file_out_name: str, **kwargs) -> bool:
         desc=desc,
         total=round(float(ffprobe_info["streams"][0]["duration"])),
         unit="s",
-        # position=,
         bar_format="{desc:<40}: {percentage:3.0f}%|{bar}|{n_fmt}/{total_fmt} [{elapsed}]({rate_fmt}{postfix})",
         leave=True,
         ascii=True,
@@ -531,8 +543,9 @@ if metronome_settings["convert"]:
             )
             file = Path(file)
 
-            file_out_name = f"{file.stem}.mp3"
-
+            output_ext = metronome_settings["convert"]
+            file_out_name = f"{file.stem}.{output_ext}"
+            
             # We dont want to convert again
             if os.path.exists(os.path.join(file_out.parent, file_out_name)):
                 tqdm.write(f"{file_out_name} already exists! Skipping...")
