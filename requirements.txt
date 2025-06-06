@@ -1,3 +1,4 @@
 tqdm
 python-magic
 requests
+argcomplete
