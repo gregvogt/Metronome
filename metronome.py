@@ -18,14 +18,13 @@ import json
 import shutil
 from threading import Thread
 from queue import Queue
-
-from cli import get_parser
-from deps import download, extract
-from fileutils import make_dir, is_safe_path, is_safe_filename
-from convert import ffmpeg
-
-from logger import setup_logging, logging
 from datetime import datetime
+
+from libs.cli import get_parser
+from libs.deps import download, extract
+from libs.fileutils import make_dir, is_safe_path, is_safe_filename
+from libs.convert import ffmpeg
+from libs.logger import setup_logging, logging
 
 
 def main():

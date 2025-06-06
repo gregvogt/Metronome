@@ -11,9 +11,9 @@ Metronome is a swiss-army knife command-line tool to convert, sort, and analyze 
 ## Features
 
 - Batch convert audio files (FLAC, MP3, WAV, AAC, OGG, M4A, WMA, ALAC, AIFF, and more) to MP3 or Opus.
-- Customizable output file and folder naming.
+- Customizable output file and folder naming (Planned).
 - Preserves original folder structure.
-- Optional audio analysis using AcoustID/MusicBrainz.
+- Optional audio analysis using AcoustID/MusicBrainz (Planned).
 - Multi-threaded conversion for speed.
 - CLI and persistent user settings.
 - Safe path and filename checks.
