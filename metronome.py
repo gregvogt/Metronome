@@ -57,7 +57,7 @@ parser.add_argument(
 parser.add_argument(
     "--threads",
     help="Number of threads to use for conversion",
-    default=2,
+    default=os.cpu_count() or 2,
 )
 parser.add_argument(
     "-s",
@@ -190,8 +190,8 @@ if len(sys.argv) == 1:
 programs = {
     "ffmpeg": {
         "Linux": {
-            "url": "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz",
-            "checksum": "b1e096314a5cc1437b23d675cc1f9941c472b25c4a501e99b7979b3768d8f66b",
+            "url": "https://www.johnvansickle.com/ffmpeg/old-releases/ffmpeg-6.0.1-amd64-static.tar.xz",
+            "checksum": "28268bf402f1083833ea269331587f60a242848880073be8016501d864bd07a5",
         },
         "Windows": {
             "url": "https://github.com/GyanD/codexffmpeg/releases/download/7.0.1/ffmpeg-7.0.1-full_build.zip",
@@ -349,9 +349,10 @@ def download(url: str, checksum: str | None = None) -> bytes:
         if file_size != 0 and file_progress_bar.n != file_size:
             raise RuntimeError("Unable to download: {}".format(url))
 
-    if hashlib.sha256(file).hexdigest() != checksum:
+    calculated_checksum = hashlib.sha256(file).hexdigest()
+    if calculated_checksum != checksum:
         raise RuntimeError(
-            "{} checksums do not match! Please obtain from trusted source.".format(url)
+            "{} checksums do not match! Please obtain from trusted source. {} Expected: {} {} Found: {}".format(url, os.linesep, checksum, os.linesep, calculated_checksum)
         )
 
     return bytes(file)
@@ -500,7 +501,7 @@ def ffmpeg(in_file: Path, out_file: Path, file_out_name: str, **kwargs) -> bool:
         total=round(float(ffprobe_info["streams"][0]["duration"])),
         unit="s",
         bar_format="{desc:<40}: {percentage:3.0f}%|{bar}|{n_fmt}/{total_fmt} [{elapsed}]({rate_fmt}{postfix})",
-        leave=True,
+        leave=False,
         ascii=True,
     ) as progress:
         # tqdm.write("Processing: {}".format(in_file))
@@ -515,6 +516,9 @@ def ffmpeg(in_file: Path, out_file: Path, file_out_name: str, **kwargs) -> bool:
             for line in process.stdout:  # type: ignore
                 stat = line.split("=")
 
+                if len(stat) < 2:
+                    continue
+                
                 status.update({stat[0]: stat[1]})
 
                 if "out_time_us" in stat:
@@ -551,8 +555,28 @@ def is_safe_path(base_dir: str, path: str) -> bool:
 
 
 def is_safe_filename(filename: str) -> bool:
-    # Allow only safe characters in filenames (alphanumeric, dash, underscore, dot)
-    return re.match(r"^[\w\-. ]+$", filename) is not None
+    # Disallow forbidden characters for Windows and Unix filesystems
+    forbidden = '<>:"/\\|?*\0'
+    
+    if metronome_settings["debug"]:
+        print(f"Checking: {repr(filename)}")
+        print(f"Forbidden: {any(char in filename for char in forbidden)}")
+        print(f"Control: {any(ord(char) < 32 for char in filename)}")
+        print(f"Strip: {filename.strip(' .') != filename}")
+        print(f"Empty: {not filename}")
+    
+    if any(char in filename for char in forbidden):
+        return False
+    # Disallow ASCII control characters
+    if any(ord(char) < 32 for char in filename):
+        return False
+    # Disallow leading/trailing spaces or dots
+    if filename.strip(" .") != filename:
+        return False
+    # Disallow empty filenames
+    if not filename:
+        return False
+    return True
 
 
 files = []
@@ -570,9 +594,7 @@ for file in glob(
     files.append(file)
 
 
-threads = (
-    int(metronome_settings["threads"]) or os.cpu_count() or 2
-)
+threads = int(metronome_settings["threads"])
 
 thread_list = []
 
