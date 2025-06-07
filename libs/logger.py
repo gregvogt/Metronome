@@ -1,18 +1,21 @@
 import logging
 import sys
 
+
 class ConsoleFilter(logging.Filter):
     def filter(self, record):
         return record.levelno < logging.ERROR
+
 
 class StderrFilter(logging.Filter):
     def filter(self, record):
         return record.levelno >= logging.ERROR
 
+
 def setup_logging(logfile=None, level=logging.INFO):
     formatter = logging.Formatter(
         fmt="[%(asctime)s]: %(levelname)-8s | %(filename)s:%(lineno)d | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
     logger = logging.getLogger()
@@ -39,6 +42,7 @@ def setup_logging(logfile=None, level=logging.INFO):
         file_handler.setLevel(level)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
+
 
 # Example usage:
 # setup_logging("mylogfile.log", logging.DEBUG)

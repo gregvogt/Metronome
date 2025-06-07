@@ -1,18 +1,18 @@
 import os
-import json
-import requests # type: ignore
+import requests  # type: ignore
 import hashlib
 import stat
 from io import BytesIO
 from pathlib import Path
 from typing import List
 from tqdm import tqdm  # type: ignore
-from sys import platform as system 
-    
+from sys import platform
+
+
 def extract(in_file: bytes, out_path: Path, needles: List) -> bool:
     from zipfile import ZipFile  # noqa
     from tarfile import TarFile  # noqa
-    import magic # type: ignore
+    import magic  # type: ignore
 
     def safe_extract_path(base_dir: Path, target_path: Path) -> Path:
         # Resolve the absolute path and ensure it's within base_dir
@@ -41,8 +41,8 @@ def extract(in_file: bytes, out_path: Path, needles: List) -> bool:
 
                         file_out.write(file_bytes.read())
 
-                        if system == "Linux":
-                            os.fchmod(file_out.fileno(), stat.S_IEXEC)
+                        if platform == "Linux":
+                            os.fchmod(file_out.fileno(), stat.S_IEXEC) # type: ignore
 
                         file_out.close()
 
@@ -58,8 +58,8 @@ def extract(in_file: bytes, out_path: Path, needles: List) -> bool:
                     with open(safe_path, "wb") as file_out:
                         file_out.write(zip.read(str(file.filename)))
 
-                        if system == "Linux":
-                            os.fchmod(file_out.fileno(), stat.S_IEXEC)
+                        if platform == "Linux":
+                            os.fchmod(file_out.fileno(), stat.S_IEXEC) # type: ignore
 
                         file_out.close()
     else:
@@ -69,7 +69,7 @@ def extract(in_file: bytes, out_path: Path, needles: List) -> bool:
 
 
 def download(url: str, checksum: str | None = None) -> bytes:
-    
+
     try:
         file_request = requests.get(url, stream=True)
         file_request.raise_for_status()
@@ -97,8 +97,9 @@ def download(url: str, checksum: str | None = None) -> bytes:
     calculated_checksum = hashlib.sha256(file).hexdigest()
     if calculated_checksum != checksum:
         raise RuntimeError(
-            "{} checksums do not match! Please obtain from trusted source. {} Expected: {} {} Found: {}".format(url, os.linesep, checksum, os.linesep, calculated_checksum)
+            "{} checksums do not match! Please obtain from trusted source. {} Expected: {} {} Found: {}".format(
+                url, os.linesep, checksum, os.linesep, calculated_checksum
+            )
         )
 
     return bytes(file)
-

@@ -3,6 +3,7 @@ import pathlib
 import sys
 import argparse
 import argcomplete  # type: ignore
+import platform
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -37,6 +38,7 @@ def get_parser() -> argparse.ArgumentParser:
         default=None,
     )
     parser.add_argument(
+        "-t",
         "--threads",
         help="Number of threads to use for conversion",
         default=os.cpu_count() or 2,
@@ -68,12 +70,6 @@ def get_parser() -> argparse.ArgumentParser:
         default="output",
     )
     parser.add_argument(
-        "--extra-extensions",
-        help="Comma-separated list of extra file extensions to include (e.g. m4a,flac,wav).",
-        type=lambda s: [ext.strip() for ext in s.split(",")] if s else [],
-        default=[],
-    )
-    parser.add_argument(
         "-p",
         "--in-place",
         help="Work on input directory directly; irrevocable (WARNING: THIS IS NOT RECOMMENDED)",
@@ -85,13 +81,6 @@ def get_parser() -> argparse.ArgumentParser:
         "--format",
         help="Set custom format for output files, eg; {TrackNumber} - {TrackTitle}, see below for full list of formatters. This supports directory creation.",
         default="{ArtistName}/{AlbumTitle} [{AlbumYear}]/{TrackNumber} - {TrackTitle}.{Extension}",
-    )
-    parser.add_argument(
-        "-t",
-        "--strip",
-        help="Strip all metadata in library.",
-        default=False,
-        action=argparse.BooleanOptionalAction,
     )
     parser.add_argument(
         "-r",
@@ -106,6 +95,30 @@ def get_parser() -> argparse.ArgumentParser:
         help="By default we will check if a song has an explicit version in the library and skip the clean one.",
         default=False,
         action=argparse.BooleanOptionalAction,
+    )
+    parser.add_argument(
+        "--clean",
+        help="Wipe the output directory before beginning processing.",
+        default=False,
+        action=argparse.BooleanOptionalAction,
+    )
+    parser.add_argument(
+        "--overwrite",
+        help="Overwrite existing files in the output directory.",
+        default=False,
+        action=argparse.BooleanOptionalAction,
+    )
+    parser.add_argument(
+        "--strip",
+        help="Strip all metadata in library.",
+        default=False,
+        action=argparse.BooleanOptionalAction,
+    )
+    parser.add_argument(
+        "--extra-extensions",
+        help="Comma-separated list of extra file extensions to include (e.g. m4a,flac,wav).",
+        type=lambda s: [ext.strip() for ext in s.split(",")] if s else [],
+        default=[],
     )
     parser.add_argument(
         "--log-level",
@@ -123,7 +136,10 @@ def get_parser() -> argparse.ArgumentParser:
     argcomplete.autocomplete(parser)
 
     # Handle --install-completion before parsing other args
-    if "--install-completion" in sys.argv:        
+    if "--install-completion" in sys.argv:
+        if platform.system() == "Windows":
+            print("Argcomplete is not supported on Windows (Powershell or CMD).")
+            sys.exit(0)
 
         script_path = os.path.abspath(sys.argv[0])
         completion_cmd = f'eval "$(register-python-argcomplete {script_path})"'
@@ -173,12 +189,12 @@ def get_parser() -> argparse.ArgumentParser:
             "Make sure ~/.local/bin is in your PATH to use this script with completion."
         )
         sys.exit(0)
-        
+
     if len(sys.argv) == 1:
         parser.print_help()
         print("Please select at least one option to begin.")
         exit()
-    
+
     # Initialize argcomplete for the parser
     argcomplete.autocomplete(parser)
     return parser

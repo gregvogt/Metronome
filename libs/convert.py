@@ -2,9 +2,10 @@ import os
 import shutil
 from pathlib import Path
 from subprocess import Popen, PIPE, STDOUT
-from tqdm import tqdm # type: ignore
+from tqdm import tqdm  # type: ignore
 from datetime import datetime
 import json
+
 
 def ffprobe(file: Path, bin_location: str = "bin") -> dict:
     json_packed = ""
@@ -36,30 +37,54 @@ def ffprobe(file: Path, bin_location: str = "bin") -> dict:
     return json.loads(json_packed)
 
 
-def ffmpeg(in_file: Path, out_file: Path, file_out_name: str, metronome_settings, bin_location: str, queue, logger, **kwargs) -> bool:
+def ffmpeg(
+    in_file: Path,
+    out_file: Path,
+    file_out_name: str,
+    metronome_settings,
+    bin_location: str,
+    queue,
+    logger,
+    **kwargs,
+) -> bool:
     ffmpeg_path = shutil.which("ffmpeg") or os.path.join(bin_location, "ffmpeg")
     output_format = metronome_settings.get("convert", "mp3")
     if output_format == "opus":
         codec_args = [
-            "-c:a", "libopus",
-            "-b:a", "384k",
-            "-vbr", "on",
-            "-compression_level", "10",
-            "-map_metadata", "0",
-            "-progress", "pipe:1",
-            "-loglevel", "error",
-            "-f", "opus",
+            "-c:a",
+            "libopus",
+            "-b:a",
+            "384k",
+            "-vbr",
+            "on",
+            "-compression_level",
+            "10",
+            "-map_metadata",
+            "0",
+            "-progress",
+            "pipe:1",
+            "-loglevel",
+            "error",
+            "-f",
+            "opus",
         ]
         file_out_name = os.path.splitext(file_out_name)[0] + ".opus"
     else:  # mp3
         codec_args = [
-            "-ab", "320k",
-            "-vcodec", "copy",
-            "-map_metadata", "0",
-            "-id3v2_version", "3",
-            "-progress", "pipe:1",
-            "-loglevel", "error",
-            "-f", "mp3",
+            "-ab",
+            "320k",
+            "-vcodec",
+            "copy",
+            "-map_metadata",
+            "0",
+            "-id3v2_version",
+            "3",
+            "-progress",
+            "pipe:1",
+            "-loglevel",
+            "error",
+            "-f",
+            "mp3",
         ]
         file_out_name = os.path.splitext(file_out_name)[0] + ".mp3"
 
@@ -97,10 +122,10 @@ def ffmpeg(in_file: Path, out_file: Path, file_out_name: str, metronome_settings
         ) as process:
             for line in process.stdout:  # type: ignore
                 stat = line.split("=")
-                
+
                 if len(stat) < 2:
                     continue
-                
+
                 status.update({stat[0]: stat[1]})
 
                 if "out_time_us" in stat and "N/A" not in stat[1]:
@@ -117,4 +142,3 @@ def ffmpeg(in_file: Path, out_file: Path, file_out_name: str, metronome_settings
 
     queue.task_done()
     return queue.get()
-

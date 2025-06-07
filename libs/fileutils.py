@@ -1,6 +1,7 @@
 import os
 import pathlib
 
+
 def make_dir(directory: str) -> str:
     current_working_dir = pathlib.Path.cwd()
 
@@ -17,12 +18,12 @@ def make_dir(directory: str) -> str:
 
     return directory
 
+
 def open_file(filename: pathlib.Path) -> bytes:
     with open(filename, "rb") as file:
         file_loaded = file.read()
 
     return file_loaded
-
 
 
 def is_safe_path(base_dir: str, path: str) -> bool:
@@ -35,14 +36,14 @@ def is_safe_path(base_dir: str, path: str) -> bool:
 def is_safe_filename(filename: str) -> bool:
     # Disallow forbidden characters for Windows and Unix filesystems
     forbidden = '<>:"/\\|?*\0'
-    
+
     # if metronome_settings["debug"]:
     #     print(f"Checking: {repr(filename)}")
     #     print(f"Forbidden: {any(char in filename for char in forbidden)}")
     #     print(f"Control: {any(ord(char) < 32 for char in filename)}")
     #     print(f"Strip: {filename.strip(' .') != filename}")
     #     print(f"Empty: {not filename}")
-    
+
     if any(char in filename for char in forbidden):
         return False
     # Disallow ASCII control characters

@@ -46,10 +46,14 @@ def main():
     date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     setup_logging("metronome-{}.log".format(date), log_level)
     logging.info("Starting Metronome")
-    
+
     # This is a workaround so we avoid breaking console when tqdm has it
     logger = logging.getLogger()
-    console_handlers = [h for h in logger.handlers if isinstance(h, logging.StreamHandler) and h.stream in (sys.stdout, sys.stderr)]
+    console_handlers = [
+        h
+        for h in logger.handlers
+        if isinstance(h, logging.StreamHandler) and h.stream in (sys.stdout, sys.stderr)
+    ]
     file_handlers = [h for h in logger.handlers if isinstance(h, logging.FileHandler)]
 
     if os.path.exists(metronome_json_settings):
@@ -212,6 +216,17 @@ def main():
     except (ValueError, TypeError):
         threads = 1
 
+    if metronome_settings.get("clean", False):
+        logging.info("Cleaning output directory before processing.")
+        if os.path.exists(metronome_settings["output"]):
+            shutil.rmtree(metronome_settings["output"])
+
+        try:
+            make_dir(metronome_settings["output"])
+        except ValueError as e:
+            logging.error(f"Failed to create output directory: {e}")
+            exit(1)
+
     if metronome_settings["convert"]:
         (f"Converting files to {metronome_settings['convert']} format.")
         thread_list = []
@@ -222,7 +237,7 @@ def main():
         queue = Queue(maxsize=threads)
 
         logger.info("Passing terminal output to tqdm to avoid broken output.")
-        
+
         with tqdm(
             desc="Total Files",
             total=len(files),
@@ -250,7 +265,9 @@ def main():
                     file_out_name = f"{file.stem}.{output_ext}"
 
                     # We dont want to convert again
-                    if os.path.exists(os.path.join(file_out.parent, file_out_name)):
+                    if os.path.exists(
+                        os.path.join(file_out.parent, file_out_name)
+                    ) and not metronome_settings.get("overwrite", False):
                         tqdm.write(f"{file_out_name} already exists! Skipping...")
                         logging.info(f"{file_out_name} already exists! Skipping...")
                         continue
@@ -268,7 +285,7 @@ def main():
                             metronome_settings,
                             bin_location,
                             queue,
-                            logger
+                            logger,
                         ),
                     )
                     queue.put(index)
@@ -285,11 +302,11 @@ def main():
 
             # Join threads back into main to free up Queue
             [thread.join() for thread in thread_list]
-            
+
             # Re-add console handlers
             for handlers in console_handlers:
                 logger.addHandler(handlers)
-                
+
         logging.info(f"Total converted files: {convert_count}")
 
 
