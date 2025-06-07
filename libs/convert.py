@@ -36,7 +36,7 @@ def ffprobe(file: Path, bin_location: str = "bin") -> dict:
     return json.loads(json_packed)
 
 
-def ffmpeg(in_file: Path, out_file: Path, file_out_name: str, metronome_settings, bin_location: str, queue, **kwargs) -> bool:
+def ffmpeg(in_file: Path, out_file: Path, file_out_name: str, metronome_settings, bin_location: str, queue, logger, **kwargs) -> bool:
     ffmpeg_path = shutil.which("ffmpeg") or os.path.join(bin_location, "ffmpeg")
     output_format = metronome_settings.get("convert", "mp3")
     if output_format == "opus":
@@ -97,29 +97,19 @@ def ffmpeg(in_file: Path, out_file: Path, file_out_name: str, metronome_settings
         ) as process:
             for line in process.stdout:  # type: ignore
                 stat = line.split("=")
-
+                
                 if len(stat) < 2:
                     continue
                 
                 status.update({stat[0]: stat[1]})
 
-                if "out_time_us" in stat:
+                if "out_time_us" in stat and "N/A" not in stat[1]:
                     total_time = round(float(status["out_time_us"]) / 1000000)
                     progress.update(total_time - progress.n)
 
                 progress.refresh()
 
-                if metronome_settings["debug"]:
-                    with open(
-                        os.path.join(
-                            os.getcwd(),
-                            "logs/{}-log-{}".format(
-                                in_file.stem, datetime.now().strftime("%H-%M-%S")
-                            ),
-                        ),
-                        "w+",
-                    ) as log:
-                        log.write(line)
+            logger.info(f"Converted {in_file} to {file_out_name}")
 
             # print(status)
         progress.set_description_str(f"Converted: {desc:<40}")

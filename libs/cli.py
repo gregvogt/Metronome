@@ -32,7 +32,9 @@ def get_parser() -> argparse.ArgumentParser:
         "--convert",
         help="Convert input file(s) to specified format: mp3 (320kpbs) (default) or opus (384kbps).",
         choices=["mp3", "opus"],
-        default="mp3",
+        nargs="?",
+        const="mp3",
+        default=None,
     )
     parser.add_argument(
         "--threads",

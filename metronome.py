@@ -268,6 +268,7 @@ def main():
                             metronome_settings,
                             bin_location,
                             queue,
+                            logger
                         ),
                     )
                     queue.put(index)
